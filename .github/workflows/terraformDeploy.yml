@@ -1,0 +1,62 @@
+name: 'Terraform Deployment'
+on:
+  push:
+    branches: [ Main ]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARM_CLIENT_ID: "${{ secrets.AZURE_AD_CLIENT_ID }}"
+  ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_AD_SUBSCRIPTION_ID }}"
+  ARM_TENANT_ID: "${{ secrets.AZURE_AD_TENANT_ID }}"
+
+jobs:
+  build:
+    runs-on: self-hosted
+    env:
+      working-directory: ./githubAction
+    steps:
+      - name: 'Checkout repo'
+        uses: actions/checkout@v3
+
+      - name: 'Install Terraform'
+        run: | 
+            sudo apt update
+            sudo apt install  software-properties-common gnupg2 curl
+            curl https://apt.releases.hashicorp.com/gpg | gpg --dearmor > hashicorp.gpg
+            sudo install -o root -g root -m 644 hashicorp.gpg /etc/apt/trusted.gpg.d/
+            sudo apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+            sudo apt install terraform -y
+
+      - name: 'Az CLI login'
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_AD_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_AD_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_AD_SUBSCRIPTION_ID }}
+
+      - name: 'Terraform init'
+        id: init
+        run: terraform init
+        working-directory: ${{env.working-directory}}
+        continue-on-error: true 
+
+      - name: Terraform plan
+        id: plan
+        run: terraform plan
+        working-directory: ${{env.working-directory}}
+        continue-on-error: true
+                    
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply --auto-approve
+        working-directory: ${{env.working-directory}}
+        continue-on-error: true 
+
+      - name: 'Terraform destroy'
+        id: destroy
+        run: terraform destroy --auto-approve
+        working-directory: ${{env.working-directory}}
+        continue-on-error: true
