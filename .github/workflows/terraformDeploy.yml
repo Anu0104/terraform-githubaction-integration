@@ -1,7 +1,7 @@
 name: 'Terraform Deployment'
 on:
   push:
-    branches: [ Main ]
+    branches: [ main ]
 
 permissions:
   id-token: write
